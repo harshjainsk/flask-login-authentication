@@ -1,14 +1,15 @@
-from flask import Flask, render_template, url_for
+from flask import Flask, render_template, url_for, redirect
 from flask_sqlalchemy import SQLAlchemy
-from flask_login import UserMixin
+from flask_login import UserMixin, login_user, LoginManager, login_required, logout_user, current_user
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField
 from wtforms.validators import InputRequired, Length, ValidationError
+from flask_bcrypt import Bcrypt
 
 
 # creating a flask instance
 app = Flask(__name__)
-
+bcrypt = Bcrypt(app)
 
 #connecting to database
 app.config['SQLALCHEMY_DATABASE_URI'] = "sqlite:///database.db"
@@ -69,14 +70,26 @@ def home():
 
     return render_template('home.html')
 
-@app.route('/login')
+@app.route('/login', methods=['GET', 'POST'])
 def login():
-    return render_template('login.html')
+    form = LoginForm()
+    return render_template('login.html', form = form)
 
 
-@app.route('/register')
+@app.route('/register', methods=['GET', 'POST'])
 def register():
-    return render_template('register.html')
+    form = RegisterForm()
+
+    if form.validate_on_submit:
+        if form.password.data:
+            hashed_password = bcrypt.generate_password_hash(form.password.data)
+            new_user = User(username = form.username.data, password = hashed_password)
+            db.session.add(new_user)
+            db.session.commit()
+            return redirect('login')
+
+
+    return render_template('register.html', form  = form)
 
 
 if __name__=='__main__':
