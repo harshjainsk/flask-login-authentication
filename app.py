@@ -1,4 +1,4 @@
-from flask import Flask, render_template, url_for, redirect
+from flask import Flask, render_template, url_for, redirect, request, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin, login_user, LoginManager, login_required, logout_user, current_user
 from flask_wtf import FlaskForm
@@ -25,6 +25,17 @@ db = SQLAlchemy(app)
     and keep it confidential
 """
 app.config['SECRET_KEY'] = 'thisIsSecretKEy'
+
+
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = "login"
+
+
+@login_manager.user_loader
+def user_load(user_id):
+
+    return User.query.get(int(user_id))
 
 # create table for user
 
@@ -73,12 +84,50 @@ def home():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     form = LoginForm()
+    
+    if form.validate_on_submit():
+        user = User.query.filter_by(username = form.username.data).first()
+        if user:
+            if bcrypt.check_password_hash(user.password, form.password.data):
+                login_user(user)
+
+                # return redirect(url_for('dashboard'))
+                return redirect('dashboard')
+
+
     return render_template('login.html', form = form)
+
+
+@app.route('/dashboard', methods=['GET', 'POST'])
+@login_required
+def dashboard():
+
+    return render_template('dashboard.html')
+
+        
+from flask import send_from_directory
+
+@app.route('/uploads/<name>')
+def download_file(name):
+    return send_from_directory(app.config["UPLOAD_FOLDER"], name)
+
+
+
+
+
+@app.route('/logout', methods=['GET', 'POST'])
+@login_required
+def logout():
+    logout_user()
+
+    return redirect(url_for('login'))
 
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     form = RegisterForm()
+
+    
 
     if form.validate_on_submit:
         if form.password.data:
@@ -87,7 +136,6 @@ def register():
             db.session.add(new_user)
             db.session.commit()
             return redirect('login')
-
 
     return render_template('register.html', form  = form)
 
