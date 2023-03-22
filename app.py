@@ -2,6 +2,8 @@ from flask import Flask, render_template, url_for, redirect, request, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin, login_user, LoginManager, login_required, logout_user, current_user
 from flask_wtf import FlaskForm
+from werkzeug.utils import secure_filename
+import os
 from wtforms import StringField, PasswordField, SubmitField
 from wtforms.validators import InputRequired, Length, ValidationError
 from flask_bcrypt import Bcrypt
@@ -25,6 +27,7 @@ db = SQLAlchemy(app)
     and keep it confidential
 """
 app.config['SECRET_KEY'] = 'thisIsSecretKEy'
+app.config['UPLOAD'] =  'static/files'
 
 
 login_manager = LoginManager()
@@ -78,8 +81,9 @@ class LoginForm(FlaskForm):
 
 @app.route('/')
 def home():
-
     return render_template('home.html')
+
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -89,28 +93,23 @@ def login():
         user = User.query.filter_by(username = form.username.data).first()
         if user:
             if bcrypt.check_password_hash(user.password, form.password.data):
-                login_user(user)
-
-                # return redirect(url_for('dashboard'))
-                return redirect('dashboard')
-
+                login_user(user)           
+                return redirect('upload')
 
     return render_template('login.html', form = form)
 
 
-@app.route('/dashboard', methods=['GET', 'POST'])
+
+@app.route('/upload', methods=['GET', 'POST'])
 @login_required
-def dashboard():
-
-    return render_template('dashboard.html')
-
-        
-from flask import send_from_directory
-
-@app.route('/uploads/<name>')
-def download_file(name):
-    return send_from_directory(app.config["UPLOAD_FOLDER"], name)
-
+def upload():
+    if request.method == 'POST':
+        file = request.files['img']
+        filename = secure_filename(file.filename)
+        file.save(os.path.join(app.config['UPLOAD'], filename))
+        img = os.path.join(app.config['UPLOAD'], filename)
+        return render_template('video_render.html', img=img)
+    return render_template('video_render.html')
 
 
 
@@ -123,11 +122,10 @@ def logout():
     return redirect(url_for('login'))
 
 
+
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     form = RegisterForm()
-
-    
 
     if form.validate_on_submit:
         if form.password.data:
